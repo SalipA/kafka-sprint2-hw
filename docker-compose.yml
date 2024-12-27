@@ -1,0 +1,159 @@
+version: "3.9"
+
+services:
+  kafka-0:
+    image: bitnami/kafka:3.4
+    ports:
+      - "9094:9094"
+    environment:
+      - KAFKA_ENABLE_KRAFT=yes
+      - KAFKA_CFG_PROCESS_ROLES=broker,controller
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_CFG_NODE_ID=0
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka-0:9093,1@kafka-1:9093,2@kafka-2:9093
+      - KAFKA_KRAFT_CLUSTER_ID=abcdefghijklmnopqrstuv
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka-0:9092,EXTERNAL://127.0.0.1:9094
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=false
+      - MIN_IN_SYNC_REPLICAS_CONFIG=2
+    volumes:
+      - kafka_0_data:/bitnami/kafka
+
+
+
+  kafka-1:
+    image: bitnami/kafka:3.4
+    ports:
+      - "9095:9095"
+    environment:
+      - KAFKA_ENABLE_KRAFT=yes
+      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_CFG_NODE_ID=1
+      - KAFKA_CFG_PROCESS_ROLES=broker,controller
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka-0:9093,1@kafka-1:9093,2@kafka-2:9093
+      - KAFKA_KRAFT_CLUSTER_ID=abcdefghijklmnopqrstuv
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9095
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka-1:9092,EXTERNAL://127.0.0.1:9095
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=false
+      - MIN_IN_SYNC_REPLICAS_CONFIG=2
+
+    volumes:
+      - kafka_1_data:/bitnami/kafka
+
+  kafka-2:
+    image: bitnami/kafka:3.4
+    ports:
+      - "9096:9096"
+    environment:
+      - KAFKA_ENABLE_KRAFT=yes
+      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_CFG_NODE_ID=2
+      - KAFKA_CFG_PROCESS_ROLES=broker,controller
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka-0:9093,1@kafka-1:9093,2@kafka-2:9093
+      - KAFKA_KRAFT_CLUSTER_ID=abcdefghijklmnopqrstuv
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9096
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka-2:9092,EXTERNAL://127.0.0.1:9096
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=false
+      - MIN_IN_SYNC_REPLICAS_CONFIG=2
+    volumes:
+      - kafka_2_data:/bitnami/kafka
+
+  ksqldb-server:
+    image: confluentinc/cp-ksqldb-server:latest.arm64
+    container_name: ksqldb-server
+    depends_on:
+      - kafka-0
+    ports:
+      - "8088:8088"
+    environment:
+      KSQL_HOST_NAME: ksqldb-server
+      KSQL_BOOTSTRAP_SERVERS: kafka-0:9092
+      KSQL_LISTENERS: "http://0.0.0.0:8088"
+      KSQL_DEFAULT_TOPIC_REPLICAS: 3
+
+  ui:
+    image: provectuslabs/kafka-ui:v0.7.0
+    depends_on:
+      - kafka-0
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_BOOTSTRAP_SERVERS: kafka-0:9092
+      KAFKA_CLUSTERS_0_KSQLDB_SERVER: "http://ksqldb-server:8088"
+
+  user-service:
+    container_name: user-service
+    build: ./user-service
+    ports:
+      - "8083:8083"
+    depends_on:
+      - kafka-0
+    environment:
+      - SERVER_PORT=8083
+      - KAFKA_BOOTSTRAP_SERVER=kafka-0:9092
+      - BLOCKED_USERS_TOPIC=blocked_users
+      - ACKS_CONFIG=1
+      - RETRIES_CONFIG=3
+
+  moderation-service:
+    container_name: moderation-service
+    build: ./moderation-service
+    ports:
+      - "8084:8084"
+    depends_on:
+      - kafka-0
+    environment:
+      - SERVER_PORT=8084
+      - KAFKA_BOOTSTRAP_SERVER=kafka-0:9092
+      - CENSORED_WORDS_TOPIC=censored_words
+      - ACKS_CONFIG=1
+      - RETRIES_CONFIG=3
+
+  messaging-service:
+    container_name: messaging-service
+    build: ./messaging-service
+    ports:
+      - "8085:8085"
+    depends_on:
+      - kafka-0
+    environment:
+      - SERVER_PORT=8085
+      - KAFKA_BOOTSTRAP_SERVER=kafka-0:9092
+      - MESSAGES_TOPIC=messages
+      - ACKS_CONFIG=1
+      - RETRIES_CONFIG=3
+
+  kafka-streams-app:
+    container_name: kafka-streams-app
+    build: ./kafka-streams-app
+    ports:
+      - "8086:8086"
+    depends_on:
+      - kafka-0
+    environment:
+      - KAFKA_BOOTSTRAP_SERVER=kafka-0:9092
+      - BLOCKED_USERS_TOPIC=blocked_users
+      - MESSAGES_TOPIC=messages
+      - FILTERED_MESSAGES_TOPIC=filtered_messages
+      - CENSORED_WORDS_TOPIC=censored_words
+      - APPLICATION_ID=kafka-streams-app
+
+  ksqldb-cli:
+    image: confluentinc/cp-ksqldb-cli:7.2.7.arm64
+    container_name: ksqldb-cli
+    entrypoint: [ "ksql", "http://ksqldb-server:8088" ]
+    depends_on:
+      - ksqldb-server
+    stdin_open: true
+    tty: true
+
+volumes:
+  kafka_0_data:
+  kafka_1_data:
+  kafka_2_data:

@@ -1,0 +1,3 @@
+curl -X POST -H "Content-Type: application/json" -d '{"blockingInitiatorId": "user1", "blockedUserId": "user2"}' http://localhost:8083/block
+curl -X POST -H "Content-Type: application/json" -d '{"blockingInitiatorId": "user1", "blockedUserId": "user3"}' http://localhost:8083/block
+curl -X POST -H "Content-Type: application/json" -d '{"blockingInitiatorId": "user2", "blockedUserId": "user3"}' http://localhost:8083/block

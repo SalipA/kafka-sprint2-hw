@@ -1,0 +1,5 @@
+curl -X POST -H "Content-Type: application/json" -d '{"word": "айти"}' http://localhost:8084/censored
+curl -X POST -H "Content-Type: application/json" -d '{"word": "программировать"}' http://localhost:8084/censored
+curl -X POST -H "Content-Type: application/json" -d '{"word": "java"}' http://localhost:8084/censored
+curl -X POST -H "Content-Type: application/json" -d '{"word": "kafka"}' http://localhost:8084/censored
+
